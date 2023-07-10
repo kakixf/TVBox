@@ -85,5 +85,27 @@ public class App extends MultiDexApplication {
         history.add("https://kakixf.github.io/static/json/meotv.json");
         putDefault(HawkConfig.API_HISTORY, history);// 历史配置地址列表
     }
+    private void initLocale() {
+        if (Hawk.get(HawkConfig.HOME_LOCALE, 0) == 0) {
+            LocaleHelper.setLocale(App.this, "zh");
+        } else {
+            LocaleHelper.setLocale(App.this, "");
+        }
+    }
 
+    public static App getInstance() {
+        return instance;
+    }
+
+    private void putDefault(String key, Object value) {
+        if (!Hawk.contains(key)) {
+            Hawk.put(key, value);
+        }
+    }
+
+    @Override
+    public void onTerminate() {
+        super.onTerminate();
+        JSEngine.getInstance().destroy();
+    }
 }
