@@ -91,15 +91,13 @@ public class App extends MultiDexApplication {
         putDefault(HawkConfig.PARSE_WEBVIEW, true);          //嗅探Webview: true=系统自带, false=XWalkView
         putDefault(HawkConfig.DOH_URL, 0);                   //安全DNS: 0=关闭, 1=腾讯, 2=阿里, 3=360, 4=Google, 5=AdGuard, 6=Quad9
 
-        putDefault(HawkConfig.HOME_SEARCH_POSITION, false);  // 搜索按钮位置，true=Up, false=Down
-        putDefault(HawkConfig.HOME_MENU_POSITION, false);    // 设置按钮位置，true=Up, false=Down
-
+        // 历史配置地址列表
         ArrayList<String> history = new ArrayList<String>();
         history.add("https://kakixf.github.io/static/json/tvbox.json");
         history.add("https://kakixf.github.io/static/json/xiaoya.json");
         history.add("https://kakixf.github.io/static/json/feimao.json");
         history.add("https://kakixf.github.io/static/json/meotv.json");
-        putDefault(HawkConfig.API_HISTORY, history);         // 历史配置地址列表
+        putDefault(HawkConfig.API_HISTORY, history);
     }
 
     private void initLocale() {
