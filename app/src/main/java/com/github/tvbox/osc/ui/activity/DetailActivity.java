@@ -30,7 +30,7 @@ import androidx.annotation.RequiresApi;
 import androidx.fragment.app.FragmentContainerView;
 import androidx.lifecycle.Observer;
 import androidx.lifecycle.ViewModelProvider;
-
+import com.blankj.utilcode.util.ServiceUtils;
 import com.chad.library.adapter.base.BaseQuickAdapter;
 import com.github.tvbox.osc.R;
 import com.github.tvbox.osc.api.ApiConfig;
@@ -41,8 +41,8 @@ import com.github.tvbox.osc.bean.SourceBean;
 import com.github.tvbox.osc.bean.VodInfo;
 import com.github.tvbox.osc.cache.RoomDataManger;
 import com.github.tvbox.osc.event.RefreshEvent;
-import com.github.tvbox.osc.picasso.RoundTransformation;
 import com.github.tvbox.osc.player.controller.VodController;
+import com.github.tvbox.osc.server.PlayService;
 import com.github.tvbox.osc.ui.adapter.SeriesAdapter;
 import com.github.tvbox.osc.ui.adapter.SeriesFlagAdapter;
 import com.github.tvbox.osc.ui.dialog.PushDialog;
@@ -51,7 +51,7 @@ import com.github.tvbox.osc.ui.fragment.PlayFragment;
 import com.github.tvbox.osc.util.DefaultConfig;
 import com.github.tvbox.osc.util.FastClickCheckUtil;
 import com.github.tvbox.osc.util.HawkConfig;
-import com.github.tvbox.osc.util.MD5;
+import com.github.tvbox.osc.util.ImgUtil;
 import com.github.tvbox.osc.util.SearchHelper;
 import com.github.tvbox.osc.util.SubtitleHelper;
 import com.github.tvbox.osc.util.thunder.Thunder;
@@ -66,7 +66,6 @@ import com.orhanobut.hawk.Hawk;
 import com.owen.tvrecyclerview.widget.TvRecyclerView;
 import com.owen.tvrecyclerview.widget.V7GridLayoutManager;
 import com.owen.tvrecyclerview.widget.V7LinearLayoutManager;
-import com.squareup.picasso.Picasso;
 
 import org.greenrobot.eventbus.EventBus;
 import org.greenrobot.eventbus.Subscribe;
@@ -83,8 +82,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-
-import me.jessyan.autosize.utils.AutoSizeUtils;
 
 /**
  * @author pj567
@@ -133,7 +130,15 @@ public class DetailActivity extends BaseActivity {
     private static final int PIP_BOARDCAST_ACTION_PLAYPAUSE = 1;
     private static final int PIP_BOARDCAST_ACTION_NEXT = 2;
 
-    private ImageView tvPlayUrl;
+    private ImageView tvPlayUrl;    
+    /**
+     * Home键广播,用于触发后台服务
+     */
+    private BroadcastReceiver mHomeKeyReceiver;
+    /**
+     * 是否开启后台播放标记,不在广播开启,onPause根据标记开启
+     */
+    boolean openBackgroundPlay;
 
     @Override
     protected int getLayoutResID() {
@@ -143,9 +148,43 @@ public class DetailActivity extends BaseActivity {
     @Override
     protected void init() {
         EventBus.getDefault().register(this);
+        initReceiver();
         initView();
         initViewModel();
         initData();
+    }
+    
+    @Override
+    protected void onResume() {
+        super.onResume();
+        openBackgroundPlay = false;
+        if (ServiceUtils.isServiceRunning(PlayService.class)){
+            PlayService.stop();
+        }
+    }
+    
+    @Override
+    protected void onPause() {
+        super.onPause();
+        if (openBackgroundPlay){
+            PlayService.start(playFragment.getPlayer());
+        }
+    }
+    
+    private void initReceiver(){
+        // 注册广播接收器
+        if (mHomeKeyReceiver == null) {
+            mHomeKeyReceiver = new BroadcastReceiver() {
+                @Override
+                public void onReceive(Context context, Intent intent) {
+                    String action = intent.getAction();
+                    if (action != null && action.equals(Intent.ACTION_CLOSE_SYSTEM_DIALOGS)) {
+                        openBackgroundPlay = Hawk.get(HawkConfig.BACKGROUND_PLAY_TYPE, 0) == 1 && playFragment.getPlayer() != null && playFragment.getPlayer().isPlaying();
+                    }
+                }
+            };
+            registerReceiver(mHomeKeyReceiver, new IntentFilter(Intent.ACTION_CLOSE_SYSTEM_DIALOGS));
+        }
     }
 
     private void initView() {
@@ -443,7 +482,7 @@ public class DetailActivity extends BaseActivity {
         if (vodInfo.seriesMap.get(vodInfo.playFlag) != null) {
             boolean canSelect = true;
             for (int j = 0; j < vodInfo.seriesMap.get(vodInfo.playFlag).size(); j++) {
-                if (vodInfo.seriesMap.get(vodInfo.playFlag).get(j).selected == true) {
+                if (vodInfo.seriesMap.get(vodInfo.playFlag).get(j).selected) {
                     canSelect = false;
                     break;
                 }
@@ -509,29 +548,22 @@ public class DetailActivity extends BaseActivity {
                     vodInfo.sourceKey = mVideo.sourceKey;
                     sourceKey = mVideo.sourceKey;
 
-                    tvName.setText(mVideo.name);                    
+                    tvName.setText(mVideo.name);
                     setTextShow(tvSite, getString(R.string.det_source), ApiConfig.get().getSource(firstsourceKey).getName());
                     setTextShow(tvYear, getString(R.string.det_year), mVideo.year == 0 ? "" : String.valueOf(mVideo.year));
                     setTextShow(tvArea, getString(R.string.det_area), mVideo.area);
-                    setTextShow(tvLang, getString(R.string.det_lang), mVideo.lang);              
+                    setTextShow(tvLang, getString(R.string.det_lang), mVideo.lang);
                     if (!firstsourceKey.equals(sourceKey)) {
-                    	setTextShow(tvType, getString(R.string.det_type), "[" + ApiConfig.get().getSource(sourceKey).getName() + "] 解析");
+                        setTextShow(tvType, getString(R.string.det_type), "[" + ApiConfig.get().getSource(sourceKey).getName() + "] 解析");
                     } else {
-                    	setTextShow(tvType, getString(R.string.det_type), mVideo.type);
+                        setTextShow(tvType, getString(R.string.det_type), mVideo.type);
                     }
                     setTextShow(tvActor, getString(R.string.det_actor), mVideo.actor);
                     setTextShow(tvDirector, getString(R.string.det_dir), mVideo.director);
                     setTextShow(tvDes, getString(R.string.det_des), removeHtmlTag(mVideo.des));
                     if (!TextUtils.isEmpty(mVideo.pic)) {
-                        Picasso.get()
-                                .load(DefaultConfig.checkReplaceProxy(mVideo.pic))
-                                .transform(new RoundTransformation(MD5.string2MD5(mVideo.pic + mVideo.name))
-                                        .centerCorp(true)
-                                        .override(AutoSizeUtils.mm2px(mContext, 300), AutoSizeUtils.mm2px(mContext, 400))
-                                        .roundRadius(AutoSizeUtils.mm2px(mContext, 15), RoundTransformation.RoundType.ALL))
-                                .placeholder(R.drawable.img_loading_placeholder)
-                                .error(R.drawable.img_loading_placeholder)
-                                .into(ivThumb);
+                        // takagen99 : Use Glide instead : Rounding Radius is in pixel
+                        ImgUtil.load(mVideo.pic, ivThumb, 14);
                     } else {
                         ivThumb.setImageResource(R.drawable.img_loading_placeholder);
                     }
@@ -698,7 +730,7 @@ public class DetailActivity extends BaseActivity {
                                     throw new IllegalStateException("网络请求错误");
                                 }
                             }
-		        
+
                             @Override
                             public void onSuccess(Response<String> response) {
                                 String r = response.body();
@@ -845,6 +877,11 @@ public class DetailActivity extends BaseActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        // 注销广播接收器
+        if (mHomeKeyReceiver != null) {
+            unregisterReceiver(mHomeKeyReceiver);
+            mHomeKeyReceiver = null;
+        }
         try {
             if (searchExecutorService != null) {
                 searchExecutorService.shutdownNow();
@@ -859,14 +896,16 @@ public class DetailActivity extends BaseActivity {
         OkGo.getInstance().cancelTag("pushVod");
         EventBus.getDefault().unregister(this);
         if (!showPreview) Thunder.stop(true);
-    }
-
-    boolean PiPON = Hawk.get(HawkConfig.PIC_IN_PIC, false);
+    }    
 
     @Override
     public void onUserLeaveHint() {
         // takagen99 : Additional check for external player
-        if (supportsPiPMode() && showPreview && !playFragment.extPlay && PiPON) {
+        if (supportsPiPMode() && showPreview && !playFragment.extPlay && Hawk.get(HawkConfig.BACKGROUND_PLAY_TYPE, 0) == 2 ) {
+        	// 创建一个Intent对象，模拟按下Home键
+            Intent intent = new Intent(Intent.ACTION_MAIN);
+            intent.addCategory(Intent.CATEGORY_HOME);
+            startActivity(intent);
             // Calculate Video Resolution
             int vWidth = playFragment.mVideoView.getVideoSize()[0];
             int vHeight = playFragment.mVideoView.getVideoSize()[1];
@@ -887,10 +926,15 @@ public class DetailActivity extends BaseActivity {
                     .setAspectRatio(ratio)
                     .setActions(actions).build();
             if (!fullWindows) {
-                toggleFullPreview();
-            }
+                    toggleFullPreview();
+                }
             enterPictureInPictureMode(params);
             playFragment.getVodController().hideBottom();
+            playFragment.getPlayer().postDelayed(() -> {
+                if (!playFragment.getPlayer().isPlaying()){
+                    playFragment.getVodController().togglePlay();
+                }
+            },400);
         }
         super.onUserLeaveHint();
     }
@@ -934,6 +978,9 @@ public class DetailActivity extends BaseActivity {
         } else {
             unregisterReceiver(pipActionReceiver);
             pipActionReceiver = null;
+            if (playFragment.getPlayer().isPlaying()){
+                playFragment.getVodController().togglePlay();
+            }
         }
     }
 
