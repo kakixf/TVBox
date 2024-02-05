@@ -26,7 +26,12 @@ import java.util.ArrayList;
 
 import com.p2p.P2PClass;
 import com.whl.quickjs.android.QuickJSLoader;
+
 import java.io.File;
+
+import io.github.inflationx.calligraphy3.CalligraphyConfig;
+import io.github.inflationx.calligraphy3.CalligraphyInterceptor;
+import io.github.inflationx.viewpump.ViewPump;
 import me.jessyan.autosize.AutoSizeConfig;
 import me.jessyan.autosize.unit.Subunits;
 
@@ -40,6 +45,7 @@ public class App extends MultiDexApplication {
     private static P2PClass p;
     public static String burl;
     private static String dashData;
+    public static ViewPump viewPump = null;
 
     @Override
     public void onCreate() {
@@ -76,12 +82,25 @@ public class App extends MultiDexApplication {
 
         // Add JS support
         QuickJSLoader.init();
+
+        // add font support, my tv embed font not include emoji
+        String extStorageDir = Environment.getExternalStorageDirectory().getAbsolutePath();
+        File fontFile = new File(extStorageDir + "/tvbox.ttf");
+        if (fontFile.exists()) {
+            viewPump = ViewPump.builder()
+                    .addInterceptor(new CalligraphyInterceptor(
+                            new CalligraphyConfig.Builder()
+                                    .setDefaultFontPath(fontFile.getAbsolutePath())
+                                    .setFontAttrId(R.attr.fontPath)
+                                    .build()))
+                    .build();
+        }
     }
 
     public static P2PClass getp2p() {
         try {
             if (p == null) {
-                p = new P2PClass(instance.getExternalCacheDir().getAbsolutePath());
+                p = new P2PClass(FileUtils.getExternalCachePath());
             }
             return p;
         } catch (Exception e) {
@@ -151,6 +170,7 @@ public class App extends MultiDexApplication {
     public void setDashData(String data) {
         dashData = data;
     }
+
     public String getDashData() {
         return dashData;
     }
