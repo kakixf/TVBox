@@ -1,7 +1,11 @@
 package com.github.tvbox.osc.base;
 
+import android.os.Environment;
+
 import androidx.multidex.MultiDexApplication;
+
 import com.github.catvod.crawler.JsLoader;
+import com.github.tvbox.osc.R;
 import com.github.tvbox.osc.callback.EmptyCallback;
 import com.github.tvbox.osc.callback.LoadingCallback;
 import com.github.tvbox.osc.data.AppDataManager;
