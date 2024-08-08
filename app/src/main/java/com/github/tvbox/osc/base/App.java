@@ -147,10 +147,11 @@ public class App extends MultiDexApplication {
 
         // 历史配置地址列表
         ArrayList<String> history = new ArrayList<String>();
-        history.add("https://kakixf.github.io/static/json/tvbox.json");
-        history.add("https://kakixf.github.io/static/json/xiaoya.json");
-        history.add("https://kakixf.github.io/static/json/feimao.json");
-        history.add("https://kakixf.github.io/static/json/meotv.json");
+        history.add("http://我不是.肥猫.live/接口禁止贩卖");
+        history.add("http://饭太硬.top/tv");
+        history.add("https://ghproxy.com/raw.githubusercontent.com/FongMi/CatVodSpider/main/json/config.json");
+        history.add("http://pandown.pro/tvbox/tvbox.json");
+        history.add("http://home.jundie.top:81/top98.json");
         putDefault(HawkConfig.API_HISTORY, history);
     }
 
